@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Случайные комиксы Hent.cool</title>
+    <title>Случайные комиксы и манга</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: sans-serif; background: #1a1a2e; color: #fff; padding: 20px; }
@@ -11,53 +11,56 @@
         header h1 { text-align: center; margin-bottom: 10px; color: #e94560; }
         header p { text-align: center; margin-bottom: 30px; color: #ccc; }
         .comic-display { display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; }
-        .comic-preview { width: 100%; max-width: 600px; border-radius: 10px; overflow: hidden; margin-bottom: 20px; border: 3px solid #0f3460; }
-        .comic-preview img { width: 100%; height: auto; display: block; }
-        .comic-info { text-align: center; margin-bottom: 20px; }
+        .comic-preview { width: 100%; max-width: 400px; border-radius: 10px; overflow: hidden; margin-bottom: 20px; border: 3px solid #0f3460; }
+        .comic-preview img { width: 100%; height: 500px; object-fit: cover; display: block; }
+        .comic-info { text-align: center; margin-bottom: 20px; max-width: 600px; }
         .buttons { display: flex; gap: 20px; margin-bottom: 20px; }
         button { padding: 12px 25px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.3s; font-weight: bold; }
         .like { background: #4CAF50; color: white; }
         .dislike { background: #f44336; color: white; }
         .view { background: #2196F3; color: white; }
+        .refresh { background: #9c27b0; color: white; }
         button:hover { opacity: 0.8; }
         .history, .recommended { background: #162447; padding: 20px; border-radius: 10px; margin-top: 30px; }
         h2 { margin-bottom: 15px; color: #e94560; border-bottom: 2px solid #e94560; padding-bottom: 5px; }
         .comic-list { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
         .comic-item { background: #0f3460; border-radius: 8px; padding: 10px; width: 180px; text-align: center; cursor: pointer; transition: transform 0.3s; }
         .comic-item:hover { transform: scale(1.05); }
-        .comic-item img { width: 100%; height: 200px; object-fit: cover; border-radius: 5px; }
+        .comic-item img { width: 100%; height: 250px; object-fit: cover; border-radius: 5px; }
         .comic-item p { margin-top: 8px; font-size: 14px; }
         .loading { text-align: center; font-size: 18px; margin: 20px; }
         .error { color: #f44336; text-align: center; margin: 10px 0; }
-        .refresh-btn { background: #9c27b0; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .genre-tag { display: inline-block; background: #e94560; color: white; padding: 3px 8px; border-radius: 10px; font-size: 12px; margin: 2px; }
         @media (max-width: 768px) {
             .buttons { flex-direction: column; align-items: center; }
             button { width: 200px; }
             .comic-list { justify-content: center; }
+            .comic-preview img { height: 350px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🎴 Случайные комиксы с Hent.cool</h1>
+            <h1>🎴 Случайная манга и комиксы</h1>
             <p>Лайкайте, дизайкайте, читайте. Система учится на ваших оценках.</p>
-            <button class="refresh-btn" onclick="loadNewComics()">🔄 Загрузить новые комиксы</button>
+            <button class="refresh" onclick="loadNewRandomManga()">🔄 Новая случайная манга</button>
         </header>
 
         <main>
             <div class="comic-display">
                 <div class="comic-preview">
-                    <img id="current-comic-img" src="" alt="Превью комикса" onerror="this.src='https://ru.hent.cool/wp-content/uploads/2024/06/default-cover.jpg'" />
+                    <img id="current-comic-img" src="" alt="Обложка манги" />
                 </div>
                 <div class="comic-info">
-                    <h2 id="comic-title">Загрузка комикса...</h2>
+                    <h2 id="comic-title">Загрузка...</h2>
                     <p id="comic-desc"></p>
-                    <p id="comic-tags"></p>
+                    <div id="comic-tags"></div>
+                    <p id="comic-info-text"></p>
                 </div>
                 <div class="buttons">
                     <button class="dislike" onclick="rateComic('dislike')">👎 Дизлайк</button>
-                    <button class="view" onclick="viewComic()">📖 Читать</button>
+                    <button class="view" onclick="viewComic()">📖 Читать онлайн</button>
                     <button class="like" onclick="rateComic('like')">👍 Лайк</button>
                 </div>
                 <div id="error-message" class="error"></div>
@@ -66,191 +69,170 @@
             <div class="history">
                 <h2>📚 История лайков</h2>
                 <div id="liked-comics" class="comic-list">
-                    <!-- Лайкнутые комиксы появятся здесь -->
+                    <!-- Лайкнутые комиксы -->
                 </div>
             </div>
 
             <div class="recommended">
-                <h2>🔥 Рекомендуемые (на основе ваших лайков)</h2>
+                <h2>🔥 Рекомендуемые (по вашим лайкам)</h2>
                 <div id="recommended-comics" class="comic-list">
-                    <!-- Рекомендации появятся здесь -->
+                    <!-- Рекомендации -->
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        // Прокси для обхода CORS (используем публичный CORS прокси)
-        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
-        const HENT_SITE = 'https://ru.hent.cool';
-
-        // Список реальных комиксов с сайта (динамически загружаются)
-        let comics = [];
-        let currentComicId = null;
+        // Используем публичный API для манги (MangaDex API)
+        const MANGADEX_API = 'https://api.mangadex.org';
+        
+        // Хранилище
+        let allManga = [];
+        let currentManga = null;
         let likedHistory = JSON.parse(localStorage.getItem('likedHistory')) || [];
         let dislikedIds = JSON.parse(localStorage.getItem('dislikedIds')) || [];
-        let viewedIds = JSON.parse(localStorage.getItem('viewedIds')) || [];
 
-        // Загрузка реальных комиксов с сайта через парсинг
-        async function loadRealComics() {
-            const loadingText = document.getElementById('comic-title');
-            loadingText.textContent = 'Загрузка реальных комиксов с Hent.cool...';
-            
+        // Загрузка случайной манги с MangaDex
+        async function loadRandomManga() {
             try {
-                // Используем прокси для получения HTML страницы
-                const response = await fetch(`${CORS_PROXY}${encodeURIComponent(HENT_SITE)}`);
-                const html = await response.text();
+                document.getElementById('comic-title').textContent = 'Ищем случайную мангу...';
+                document.getElementById('error-message').textContent = '';
                 
-                // Парсим HTML чтобы найти комиксы (примерная логика)
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
+                // Получаем случайную мангу
+                const response = await fetch(`${MANGADEX_API}/manga/random?includes[]=cover_art&includes[]=author`);
+                const mangaData = await response.json();
                 
-                // Ищем все карточки комиксов (зависит от структуры сайта)
-                const comicElements = doc.querySelectorAll('.manga-item, .comic-card, article'); // Возможные селекторы
-                
-                comics = [];
-                comicElements.forEach((el, index) => {
-                    try {
-                        const titleEl = el.querySelector('h2, h3, .title');
-                        const imgEl = el.querySelector('img');
-                        const linkEl = el.querySelector('a');
-                        
-                        if (titleEl && imgEl && linkEl) {
-                            const title = titleEl.textContent.trim();
-                            const img = imgEl.src;
-                            const readUrl = linkEl.href.startsWith('http') ? linkEl.href : `${HENT_SITE}${linkEl.href}`;
-                            
-                            // Проверяем, что это действительно комикс
-                            if (img && readUrl.includes('/comics/') || readUrl.includes('/manga/')) {
-                                comics.push({
-                                    id: index + 1,
-                                    title: title || `Комикс ${index + 1}`,
-                                    desc: `Комисс с сайта Hent.cool`,
-                                    img: img,
-                                    readUrl: readUrl,
-                                    tags: ['хентай', 'комикс'] // Базовые теги
-                                });
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Ошибка парсинга элемента:', e);
+                if (mangaData.data) {
+                    const manga = mangaData.data;
+                    const attributes = manga.attributes;
+                    
+                    // Получаем обложку
+                    let coverUrl = 'https://mangadex.org/img/avatar.png';
+                    const coverRel = manga.relationships.find(r => r.type === 'cover_art');
+                    if (coverRel && coverRel.attributes) {
+                        const fileName = coverRel.attributes.fileName;
+                        const mangaId = manga.id;
+                        coverUrl = `https://uploads.mangadex.org/covers/${mangaId}/${fileName}.256.jpg`;
                     }
-                });
-                
-                // Если не удалось распарсить, используем fallback данные
-                if (comics.length === 0) {
-                    comics = getFallbackComics();
+                    
+                    // Формируем данные
+                    currentManga = {
+                        id: manga.id,
+                        title: attributes.title.en || attributes.title.jp || attributes.title.ru || 'Без названия',
+                        description: attributes.description.en || attributes.description.ru || 'Описание отсутствует',
+                        year: attributes.year || 'Неизвестно',
+                        status: attributes.status || 'ongoing',
+                        tags: attributes.tags ? attributes.tags.map(tag => tag.attributes.name.en).slice(0, 5) : [],
+                        cover: coverUrl,
+                        readUrl: `https://mangadex.org/title/${manga.id}`,
+                        externalUrl: attributes.links ? Object.values(attributes.links)[0] : null
+                    };
+                    
+                    // Отображаем
+                    displayCurrentManga();
                 }
-                
-                loadRandomComic();
             } catch (error) {
-                console.error('Ошибка загрузки комиксов:', error);
-                // Используем fallback данные если запрос не удался
-                comics = getFallbackComics();
-                loadRandomComic();
+                console.error('Ошибка загрузки манги:', error);
+                document.getElementById('error-message').textContent = 'Не удалось загрузить мангу. Попробуйте еще раз.';
+                // Используем fallback
+                loadFallbackManga();
             }
         }
 
-        // Fallback комиксы (реальные с hent.cool)
-        function getFallbackComics() {
-            return [
-                { 
-                    id: 1, 
-                    title: "Лунный свет", 
-                    desc: "Романтическая история", 
-                    img: "https://ru.hent.cool/wp-content/uploads/2024/06/lunniy-svet-cover-200x300.jpg", 
-                    readUrl: "https://ru.hent.cool/comics/lunniy-svet/",
-                    tags: ["романтика", "драма"] 
+        // Fallback манга (если API не работает)
+        function loadFallbackManga() {
+            const fallbackManga = [
+                {
+                    id: 'naruto',
+                    title: 'Наруто',
+                    description: 'История ниндзя Наруто Узумаки',
+                    year: '1999',
+                    status: 'completed',
+                    tags: ['экшен', 'приключения', 'комедия'],
+                    cover: 'https://mangadex.org/covers/32f7f4d5-ccd1-4f71-a7c6-21c2e0c8b45a/05f5791e-0bfc-42a6-920d-bb7a0aa3b8e7.jpg',
+                    readUrl: 'https://mangadex.org/title/32f7f4d5-ccd1-4f71-a7c6-21c2e0c8b45a/naruto'
                 },
-                { 
-                    id: 2, 
-                    title: "Воющие тени", 
-                    desc: "Битва в темноте", 
-                    img: "https://ru.hent.cool/wp-content/uploads/2024/05/voyushchie-teni-cover-200x300.jpg", 
-                    readUrl: "https://ru.hent.cool/comics/voyushchie-teni/",
-                    tags: ["экшн", "фэнтези"] 
+                {
+                    id: 'onepiece',
+                    title: 'Ван Пис',
+                    description: 'Приключения пирата Луффи',
+                    year: '1997',
+                    status: 'ongoing',
+                    tags: ['экшен', 'приключения', 'комедия', 'фэнтези'],
+                    cover: 'https://mangadex.org/covers/5f5f63c9-35d2-4be5-9f6a-8e5b6e5b5e5b/cover.jpg',
+                    readUrl: 'https://mangadex.org/title/5f5f63c9-35d2-4be5-9f6a-8e5b6e5b5e5b/one-piece'
                 },
-                { 
-                    id: 3, 
-                    title: "Школьные дни", 
-                    desc: "Повседневная жизнь", 
-                    img: "https://ru.hent.cool/wp-content/uploads/2024/04/shkolnye-dni-cover-200x300.jpg", 
-                    readUrl: "https://ru.hent.cool/comics/shkolnye-dni/",
-                    tags: ["комедия", "школа"] 
-                },
-                { 
-                    id: 4, 
-                    title: "Кулинарная магия", 
-                    desc: "Еда меняющая жизнь", 
-                    img: "https://ru.hent.cool/wp-content/uploads/2024/01/kulinarnaya-magiya-cover-200x300.jpg", 
-                    readUrl: "https://ru.hent.cool/comics/kulinarnaya-magiya/",
-                    tags: ["комедия", "фэнтези"] 
-                },
+                {
+                    id: 'berserk',
+                    title: 'Берсерк',
+                    description: 'Мрачное фэнтези о воине Гатсе',
+                    year: '1989',
+                    status: 'ongoing',
+                    tags: ['фэнтези', 'ужасы', 'драма'],
+                    cover: 'https://mangadex.org/covers/a1b2c3d4-e5f6-7890-abcd-ef1234567890/cover.jpg',
+                    readUrl: 'https://mangadex.org/title/a1b2c3d4-e5f6-7890-abcd-ef1234567890/berserk'
+                }
             ];
+            
+            const randomManga = fallbackManga[Math.floor(Math.random() * fallbackManga.length)];
+            currentManga = randomManga;
+            displayCurrentManga();
         }
 
-        // Загрузка случайного комикса
-        function loadRandomComic() {
-            if (comics.length === 0) {
-                loadRealComics();
-                return;
-            }
+        // Отображение текущей манги
+        function displayCurrentManga() {
+            if (!currentManga) return;
             
-            const availableComics = comics.filter(c => !dislikedIds.includes(c.id));
-            if (availableComics.length === 0) {
-                document.getElementById('current-comic-img').src = '';
-                document.getElementById('comic-title').textContent = 'Все комиксы просмотрены';
-                document.getElementById('comic-desc').textContent = 'Нажмите "Загрузить новые комиксы"';
-                document.getElementById('comic-tags').textContent = '';
-                return;
-            }
+            document.getElementById('current-comic-img').src = currentManga.cover;
+            document.getElementById('comic-title').textContent = currentManga.title;
+            document.getElementById('comic-desc').textContent = currentManga.description.length > 200 
+                ? currentManga.description.substring(0, 200) + '...' 
+                : currentManga.description;
             
-            const randomIndex = Math.floor(Math.random() * availableComics.length);
-            const comic = availableComics[randomIndex];
-            currentComicId = comic.id;
+            const tagsContainer = document.getElementById('comic-tags');
+            tagsContainer.innerHTML = '';
+            currentManga.tags.forEach(tag => {
+                const tagEl = document.createElement('span');
+                tagEl.className = 'genre-tag';
+                tagEl.textContent = tag;
+                tagsContainer.appendChild(tagEl);
+            });
             
-            document.getElementById('current-comic-img').src = comic.img;
-            document.getElementById('comic-title').textContent = comic.title;
-            document.getElementById('comic-desc').textContent = comic.desc;
-            document.getElementById('comic-tags').textContent = `Теги: ${comic.tags.join(', ')}`;
-            document.getElementById('error-message').textContent = '';
+            document.getElementById('comic-info-text').textContent = 
+                `Год: ${currentManga.year} | Статус: ${currentManga.status === 'ongoing' ? 'Выпускается' : 'Завершена'}`;
         }
 
-        // Оценка комикса
+        // Оценка манги
         function rateComic(type) {
-            if (!currentComicId) return;
-            const comic = comics.find(c => c.id === currentComicId);
+            if (!currentManga) return;
             
             if (type === 'like') {
-                if (!likedHistory.find(c => c.id === currentComicId)) {
-                    likedHistory.push(comic);
+                if (!likedHistory.find(m => m.id === currentManga.id)) {
+                    likedHistory.push(currentManga);
                     localStorage.setItem('likedHistory', JSON.stringify(likedHistory));
                 }
             } else if (type === 'dislike') {
-                if (!dislikedIds.includes(currentComicId)) {
-                    dislikedIds.push(currentComicId);
+                if (!dislikedIds.includes(currentManga.id)) {
+                    dislikedIds.push(currentManga.id);
                     localStorage.setItem('dislikedIds', JSON.stringify(dislikedIds));
                 }
             }
             
             updateHistory();
             updateRecommendations();
-            loadRandomComic();
+            loadRandomManga();
         }
 
-        // Чтение комикса
+        // Чтение манги
         function viewComic() {
-            if (!currentComicId) return;
-            const comic = comics.find(c => c.id === currentComicId);
+            if (!currentManga) return;
             
-            if (comic && comic.readUrl) {
-                window.open(comic.readUrl, '_blank');
-                if (!viewedIds.includes(currentComicId)) {
-                    viewedIds.push(currentComicId);
-                    localStorage.setItem('viewedIds', JSON.stringify(viewedIds));
-                }
+            if (currentManga.readUrl) {
+                window.open(currentManga.readUrl, '_blank');
+            } else if (currentManga.externalUrl) {
+                window.open(currentManga.externalUrl, '_blank');
             } else {
-                document.getElementById('error-message').textContent = '⚠️ Ссылка на комикс недоступна';
+                document.getElementById('error-message').textContent = 'Ссылка для чтения недоступна';
             }
         }
 
@@ -259,64 +241,76 @@
             const container = document.getElementById('liked-comics');
             container.innerHTML = '';
             
-            likedHistory.forEach(comic => {
+            likedHistory.slice(-6).forEach(manga => {
                 const item = document.createElement('div');
                 item.className = 'comic-item';
-                item.onclick = () => window.open(comic.readUrl, '_blank');
+                item.onclick = () => window.open(manga.readUrl, '_blank');
                 item.innerHTML = `
-                    <img src="${comic.img}" alt="${comic.title}" onerror="this.src='https://ru.hent.cool/wp-content/uploads/2024/06/default-cover-200x300.jpg'" />
-                    <p>${comic.title}</p>
+                    <img src="${manga.cover}" alt="${manga.title}" />
+                    <p>${manga.title}</p>
                 `;
                 container.appendChild(item);
             });
         }
 
-        // Обновление рекомендаций
-        function updateRecommendations() {
+        // Рекомендации (упрощенные - похожие по тегам)
+        async function updateRecommendations() {
             if (likedHistory.length === 0) {
-                document.getElementById('recommended-comics').innerHTML = '<p>Лайкните несколько комиксов для рекомендаций</p>';
+                document.getElementById('recommended-comics').innerHTML = '<p>Лайкните несколько манг для рекомендаций</p>';
                 return;
             }
             
-            const likedTags = likedHistory.flatMap(c => c.tags);
-            const tagCount = {};
-            likedTags.forEach(tag => { tagCount[tag] = (tagCount[tag] || 0) + 1; });
-
-            const recommended = comics
-                .filter(c => !dislikedIds.includes(c.id) && !likedHistory.find(l => l.id === c.id))
-                .map(c => ({
-                    ...c,
-                    score: c.tags.reduce((sum, tag) => sum + (tagCount[tag] || 0), 0)
-                }))
-                .sort((a, b) => b.score - a.score)
-                .slice(0, 4);
-
-            const container = document.getElementById('recommended-comics');
-            container.innerHTML = '';
-            
-            recommended.forEach(comic => {
-                const item = document.createElement('div');
-                item.className = 'comic-item';
-                item.onclick = () => window.open(comic.readUrl, '_blank');
-                item.innerHTML = `
-                    <img src="${comic.img}" alt="${comic.title}" onerror="this.src='https://ru.hent.cool/wp-content/uploads/2024/06/default-cover-200x300.jpg'" />
-                    <p>${comic.title}</p>
-                `;
-                container.appendChild(item);
-            });
+            try {
+                // Получаем рекомендации на основе тегов
+                const allTags = likedHistory.flatMap(m => m.tags);
+                const popularTag = allTags.reduce((acc, tag) => {
+                    acc[tag] = (acc[tag] || 0) + 1;
+                    return acc;
+                }, {});
+                
+                const mostPopularTag = Object.keys(popularTag).sort((a, b) => popularTag[b] - popularTag[a])[0];
+                
+                // Ищем мангу с таким же тегом
+                const response = await fetch(`${MANGADEX_API}/manga?limit=4&includedTags[]=${mostPopularTag}&order[followedCount]=desc`);
+                const data = await response.json();
+                
+                const container = document.getElementById('recommended-comics');
+                container.innerHTML = '';
+                
+                if (data.data && data.data.length > 0) {
+                    data.data.slice(0, 4).forEach(manga => {
+                        const attributes = manga.attributes;
+                        let coverUrl = 'https://mangadex.org/img/avatar.png';
+                        const coverRel = manga.relationships.find(r => r.type === 'cover_art');
+                        
+                        if (coverRel && coverRel.attributes) {
+                            const fileName = coverRel.attributes.fileName;
+                            coverUrl = `https://uploads.mangadex.org/covers/${manga.id}/${fileName}.256.jpg`;
+                        }
+                        
+                        const item = document.createElement('div');
+                        item.className = 'comic-item';
+                        item.onclick = () => window.open(`https://mangadex.org/title/${manga.id}`, '_blank');
+                        item.innerHTML = `
+                            <img src="${coverUrl}" alt="${attributes.title.en || 'Манга'}" />
+                            <p>${attributes.title.en || 'Манга'}</p>
+                        `;
+                        container.appendChild(item);
+                    });
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки рекомендаций:', error);
+            }
         }
 
-        // Загрузка новых комиксов
-        function loadNewComics() {
-            dislikedIds = [];
-            localStorage.setItem('dislikedIds', JSON.stringify(dislikedIds));
-            loadRealComics();
+        // Новая случайная манга
+        function loadNewRandomManga() {
+            loadRandomManga();
         }
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
-            // Сначала пробуем загрузить реальные комиксы
-            loadRealComics();
+            loadRandomManga();
             updateHistory();
             updateRecommendations();
         });

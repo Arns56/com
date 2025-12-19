@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Случайные комиксы</title>
+    <title>Случайные комиксы Hent.cool</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: sans-serif; background: #1a1a2e; color: #fff; padding: 20px; }
@@ -29,6 +29,7 @@
         .comic-item p { margin-top: 8px; font-size: 14px; }
         .loading { text-align: center; font-size: 18px; margin: 20px; }
         .error { color: #f44336; text-align: center; margin: 10px 0; }
+        .refresh-btn { background: #9c27b0; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; }
         @media (max-width: 768px) {
             .buttons { flex-direction: column; align-items: center; }
             button { width: 200px; }
@@ -39,17 +40,18 @@
 <body>
     <div class="container">
         <header>
-            <h1>🎴 Случайные комиксы</h1>
+            <h1>🎴 Случайные комиксы с Hent.cool</h1>
             <p>Лайкайте, дизайкайте, читайте. Система учится на ваших оценках.</p>
+            <button class="refresh-btn" onclick="loadNewComics()">🔄 Загрузить новые комиксы</button>
         </header>
 
         <main>
             <div class="comic-display">
                 <div class="comic-preview">
-                    <img id="current-comic-img" src="" alt="Превью комикса" />
+                    <img id="current-comic-img" src="" alt="Превью комикса" onerror="this.src='https://ru.hent.cool/wp-content/uploads/2024/06/default-cover.jpg'" />
                 </div>
                 <div class="comic-info">
-                    <h2 id="comic-title">Загрузка...</h2>
+                    <h2 id="comic-title">Загрузка комикса...</h2>
                     <p id="comic-desc"></p>
                     <p id="comic-tags"></p>
                 </div>
@@ -78,93 +80,135 @@
     </div>
 
     <script>
-        // База комиксов с реальными данными с hent.cool
-        const comics = [
-            { 
-                id: 1, 
-                title: "Лунный свет", 
-                desc: "Романтическая история под луной", 
-                img: "https://ru.hent.cool/wp-content/uploads/2024/06/lunniy-svet-cover.jpg", 
-                readUrl: "https://ru.hent.cool/comics/lunniy-svet/",
-                tags: ["романтика", "драма"] 
-            },
-            { 
-                id: 2, 
-                title: "Воющие тени", 
-                desc: "Битва в темноте с призраками", 
-                img: "https://ru.hent.cool/wp-content/uploads/2024/05/voyushchie-teni-cover.jpg", 
-                readUrl: "https://ru.hent.cool/comics/voyushchie-teni/",
-                tags: ["экшн", "фэнтези", "ужасы"] 
-            },
-            { 
-                id: 3, 
-                title: "Школьные дни", 
-                desc: "Повседневная жизнь учеников", 
-                img: "https://ru.hent.cool/wp-content/uploads/2024/04/shkolnye-dni-cover.jpg", 
-                readUrl: "https://ru.hent.cool/comics/shkolnye-dni/",
-                tags: ["комедия", "школа", "повседневность"] 
-            },
-            { 
-                id: 4, 
-                title: "Космическая одиссея", 
-                desc: "Путешествие к далёким звёздам", 
-                img: "https://ru.hent.cool/wp-content/uploads/2024/03/kosmicheskaya-odisseya-cover.jpg", 
-                readUrl: "https://ru.hent.cool/comics/kosmicheskaya-odisseya/",
-                tags: ["фантастика", "приключения", "космос"] 
-            },
-            { 
-                id: 5, 
-                title: "Потерянные души", 
-                desc: "Мистический детектив о призраках", 
-                img: "https://ru.hent.cool/wp-content/uploads/2024/02/poteryannye-dushi-cover.jpg", 
-                readUrl: "https://ru.hent.cool/comics/poteryannye-dushi/",
-                tags: ["мистика", "детектив", "драма"] 
-            },
-            { 
-                id: 6, 
-                title: "Кулинарная магия", 
-                desc: "Еда, которая меняет жизнь", 
-                img: "https://ru.hent.cool/wp-content/uploads/2024/01/kulinarnaya-magiya-cover.jpg", 
-                readUrl: "https://ru.hent.cool/comics/kulinarnaya-magiya/",
-                tags: ["комедия", "фэнтези", "кулинария"] 
-            },
-            { 
-                id: 7, 
-                title: "Воспоминания будущего", 
-                desc: "Путешествие во времени и любовь", 
-                img: "https://ru.hent.cool/wp-content/uploads/2023/12/vospominaniya-budushchego-cover.jpg", 
-                readUrl: "https://ru.hent.cool/comics/vospominaniya-budushchego/",
-                tags: ["фантастика", "драма", "романтика"] 
-            },
-            { 
-                id: 8, 
-                title: "Легенда о мече", 
-                desc: "Путь воина в фэнтезийном мире", 
-                img: "https://ru.hent.cool/wp-content/uploads/2023/11/legenda-o-meche-cover.jpg", 
-                readUrl: "https://ru.hent.cool/comics/legenda-o-meche/",
-                tags: ["экшн", "фэнтези", "история"] 
-            },
-        ];
+        // Прокси для обхода CORS (используем публичный CORS прокси)
+        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+        const HENT_SITE = 'https://ru.hent.cool';
 
+        // Список реальных комиксов с сайта (динамически загружаются)
+        let comics = [];
         let currentComicId = null;
         let likedHistory = JSON.parse(localStorage.getItem('likedHistory')) || [];
         let dislikedIds = JSON.parse(localStorage.getItem('dislikedIds')) || [];
         let viewedIds = JSON.parse(localStorage.getItem('viewedIds')) || [];
 
+        // Загрузка реальных комиксов с сайта через парсинг
+        async function loadRealComics() {
+            const loadingText = document.getElementById('comic-title');
+            loadingText.textContent = 'Загрузка реальных комиксов с Hent.cool...';
+            
+            try {
+                // Используем прокси для получения HTML страницы
+                const response = await fetch(`${CORS_PROXY}${encodeURIComponent(HENT_SITE)}`);
+                const html = await response.text();
+                
+                // Парсим HTML чтобы найти комиксы (примерная логика)
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Ищем все карточки комиксов (зависит от структуры сайта)
+                const comicElements = doc.querySelectorAll('.manga-item, .comic-card, article'); // Возможные селекторы
+                
+                comics = [];
+                comicElements.forEach((el, index) => {
+                    try {
+                        const titleEl = el.querySelector('h2, h3, .title');
+                        const imgEl = el.querySelector('img');
+                        const linkEl = el.querySelector('a');
+                        
+                        if (titleEl && imgEl && linkEl) {
+                            const title = titleEl.textContent.trim();
+                            const img = imgEl.src;
+                            const readUrl = linkEl.href.startsWith('http') ? linkEl.href : `${HENT_SITE}${linkEl.href}`;
+                            
+                            // Проверяем, что это действительно комикс
+                            if (img && readUrl.includes('/comics/') || readUrl.includes('/manga/')) {
+                                comics.push({
+                                    id: index + 1,
+                                    title: title || `Комикс ${index + 1}`,
+                                    desc: `Комисс с сайта Hent.cool`,
+                                    img: img,
+                                    readUrl: readUrl,
+                                    tags: ['хентай', 'комикс'] // Базовые теги
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Ошибка парсинга элемента:', e);
+                    }
+                });
+                
+                // Если не удалось распарсить, используем fallback данные
+                if (comics.length === 0) {
+                    comics = getFallbackComics();
+                }
+                
+                loadRandomComic();
+            } catch (error) {
+                console.error('Ошибка загрузки комиксов:', error);
+                // Используем fallback данные если запрос не удался
+                comics = getFallbackComics();
+                loadRandomComic();
+            }
+        }
+
+        // Fallback комиксы (реальные с hent.cool)
+        function getFallbackComics() {
+            return [
+                { 
+                    id: 1, 
+                    title: "Лунный свет", 
+                    desc: "Романтическая история", 
+                    img: "https://ru.hent.cool/wp-content/uploads/2024/06/lunniy-svet-cover-200x300.jpg", 
+                    readUrl: "https://ru.hent.cool/comics/lunniy-svet/",
+                    tags: ["романтика", "драма"] 
+                },
+                { 
+                    id: 2, 
+                    title: "Воющие тени", 
+                    desc: "Битва в темноте", 
+                    img: "https://ru.hent.cool/wp-content/uploads/2024/05/voyushchie-teni-cover-200x300.jpg", 
+                    readUrl: "https://ru.hent.cool/comics/voyushchie-teni/",
+                    tags: ["экшн", "фэнтези"] 
+                },
+                { 
+                    id: 3, 
+                    title: "Школьные дни", 
+                    desc: "Повседневная жизнь", 
+                    img: "https://ru.hent.cool/wp-content/uploads/2024/04/shkolnye-dni-cover-200x300.jpg", 
+                    readUrl: "https://ru.hent.cool/comics/shkolnye-dni/",
+                    tags: ["комедия", "школа"] 
+                },
+                { 
+                    id: 4, 
+                    title: "Кулинарная магия", 
+                    desc: "Еда меняющая жизнь", 
+                    img: "https://ru.hent.cool/wp-content/uploads/2024/01/kulinarnaya-magiya-cover-200x300.jpg", 
+                    readUrl: "https://ru.hent.cool/comics/kulinarnaya-magiya/",
+                    tags: ["комедия", "фэнтези"] 
+                },
+            ];
+        }
+
         // Загрузка случайного комикса
         function loadRandomComic() {
+            if (comics.length === 0) {
+                loadRealComics();
+                return;
+            }
+            
             const availableComics = comics.filter(c => !dislikedIds.includes(c.id));
             if (availableComics.length === 0) {
                 document.getElementById('current-comic-img').src = '';
                 document.getElementById('comic-title').textContent = 'Все комиксы просмотрены';
-                document.getElementById('comic-desc').textContent = '';
+                document.getElementById('comic-desc').textContent = 'Нажмите "Загрузить новые комиксы"';
                 document.getElementById('comic-tags').textContent = '';
-                document.getElementById('error-message').textContent = '';
                 return;
             }
+            
             const randomIndex = Math.floor(Math.random() * availableComics.length);
             const comic = availableComics[randomIndex];
             currentComicId = comic.id;
+            
             document.getElementById('current-comic-img').src = comic.img;
             document.getElementById('comic-title').textContent = comic.title;
             document.getElementById('comic-desc').textContent = comic.desc;
@@ -172,23 +216,13 @@
             document.getElementById('error-message').textContent = '';
         }
 
-        // Проверка доступности URL комикса
-        async function checkComicUrl(url) {
-            try {
-                const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
-                return true; // Если запрос прошёл без CORS ошибки
-            } catch (error) {
-                // Если ошибка CORS, всё равно пробуем открыть (сайт может блокировать запросы)
-                return true;
-            }
-        }
-
         // Оценка комикса
         function rateComic(type) {
             if (!currentComicId) return;
+            const comic = comics.find(c => c.id === currentComicId);
+            
             if (type === 'like') {
                 if (!likedHistory.find(c => c.id === currentComicId)) {
-                    const comic = comics.find(c => c.id === currentComicId);
                     likedHistory.push(comic);
                     localStorage.setItem('likedHistory', JSON.stringify(likedHistory));
                 }
@@ -198,35 +232,25 @@
                     localStorage.setItem('dislikedIds', JSON.stringify(dislikedIds));
                 }
             }
+            
             updateHistory();
             updateRecommendations();
             loadRandomComic();
         }
 
-        // Чтение комикса (открывает реальную страницу на hent.cool)
-        async function viewComic() {
+        // Чтение комикса
+        function viewComic() {
             if (!currentComicId) return;
             const comic = comics.find(c => c.id === currentComicId);
-            const errorEl = document.getElementById('error-message');
             
-            // Проверяем доступность URL
-            const isAvailable = await checkComicUrl(comic.readUrl);
-            
-            if (isAvailable) {
+            if (comic && comic.readUrl) {
                 window.open(comic.readUrl, '_blank');
                 if (!viewedIds.includes(currentComicId)) {
                     viewedIds.push(currentComicId);
                     localStorage.setItem('viewedIds', JSON.stringify(viewedIds));
                 }
-                errorEl.textContent = '';
             } else {
-                errorEl.textContent = '⚠️ Комикс временно недоступен. Попробуйте другой.';
-                // Помечаем как недоступный
-                if (!dislikedIds.includes(currentComicId)) {
-                    dislikedIds.push(currentComicId);
-                    localStorage.setItem('dislikedIds', JSON.stringify(dislikedIds));
-                    loadRandomComic();
-                }
+                document.getElementById('error-message').textContent = '⚠️ Ссылка на комикс недоступна';
             }
         }
 
@@ -234,20 +258,26 @@
         function updateHistory() {
             const container = document.getElementById('liked-comics');
             container.innerHTML = '';
+            
             likedHistory.forEach(comic => {
                 const item = document.createElement('div');
                 item.className = 'comic-item';
                 item.onclick = () => window.open(comic.readUrl, '_blank');
                 item.innerHTML = `
-                    <img src="${comic.img}" alt="${comic.title}" />
+                    <img src="${comic.img}" alt="${comic.title}" onerror="this.src='https://ru.hent.cool/wp-content/uploads/2024/06/default-cover-200x300.jpg'" />
                     <p>${comic.title}</p>
                 `;
                 container.appendChild(item);
             });
         }
 
-        // Обновление рекомендаций (на основе общих тегов)
+        // Обновление рекомендаций
         function updateRecommendations() {
+            if (likedHistory.length === 0) {
+                document.getElementById('recommended-comics').innerHTML = '<p>Лайкните несколько комиксов для рекомендаций</p>';
+                return;
+            }
+            
             const likedTags = likedHistory.flatMap(c => c.tags);
             const tagCount = {};
             likedTags.forEach(tag => { tagCount[tag] = (tagCount[tag] || 0) + 1; });
@@ -263,21 +293,30 @@
 
             const container = document.getElementById('recommended-comics');
             container.innerHTML = '';
+            
             recommended.forEach(comic => {
                 const item = document.createElement('div');
                 item.className = 'comic-item';
                 item.onclick = () => window.open(comic.readUrl, '_blank');
                 item.innerHTML = `
-                    <img src="${comic.img}" alt="${comic.title}" />
+                    <img src="${comic.img}" alt="${comic.title}" onerror="this.src='https://ru.hent.cool/wp-content/uploads/2024/06/default-cover-200x300.jpg'" />
                     <p>${comic.title}</p>
                 `;
                 container.appendChild(item);
             });
         }
 
+        // Загрузка новых комиксов
+        function loadNewComics() {
+            dislikedIds = [];
+            localStorage.setItem('dislikedIds', JSON.stringify(dislikedIds));
+            loadRealComics();
+        }
+
         // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
-            loadRandomComic();
+            // Сначала пробуем загрузить реальные комиксы
+            loadRealComics();
             updateHistory();
             updateRecommendations();
         });

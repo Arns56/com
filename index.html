@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Comic Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: sans-serif; background: #1a1a2e; color: #fff; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; }
+        header h1 { text-align: center; margin-bottom: 30px; color: #e94560; }
+        .comic-display { display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; }
+        .comic-preview { width: 100%; max-width: 600px; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+        .comic-preview img { width: 100%; height: auto; display: block; }
+        .buttons { display: flex; gap: 20px; margin-bottom: 20px; }
+        button { padding: 12px 25px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .like { background: #4CAF50; color: white; }
+        .dislike { background: #f44336; color: white; }
+        .view { background: #2196F3; color: white; }
+        button:hover { opacity: 0.8; }
+        .history, .recommended { background: #162447; padding: 20px; border-radius: 10px; margin-top: 30px; }
+        h2 { margin-bottom: 15px; color: #e94560; border-bottom: 2px solid #e94560; padding-bottom: 5px; }
+        .comic-list { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
+        .comic-item { background: #0f3460; border-radius: 8px; padding: 10px; width: 180px; text-align: center; }
+        .comic-item img { width: 100%; border-radius: 5px; }
+        .comic-item p { margin-top: 8px; font-size: 14px; }
+        .loading { text-align: center; font-size: 18px; margin: 20px; }
+        @media (max-width: 768px) {
+            .buttons { flex-direction: column; align-items: center; }
+            button { width: 200px; }
+            .comic-list { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎴 Random Comic Viewer</h1>
+            <p>Лайкайте, дизайкайте, читайте. Система вчиться на ваших оцінках.</p>
+        </header>
+
+        <main>
+            <div class="comic-display">
+                <div class="comic-preview">
+                    <img id="current-comic" src="" alt="Comic Preview" />
+                </div>
+                <h2 id="comic-title">Завантаження...</h2>
+                <p id="comic-desc"></p>
+                <div class="buttons">
+                    <button class="dislike" onclick="rateComic('dislike')">👎 Дизлайк</button>
+                    <button class="view" onclick="viewComic()">📖 Читати</button>
+                    <button class="like" onclick="rateComic('like')">👍 Лайк</button>
+                </div>
+            </div>
+
+            <div class="history">
+                <h2>📚 Історія лайків</h2>
+                <div id="liked-comics" class="comic-list">
+                    <!-- Лайкнуті комікси з'являться тут -->
+                </div>
+            </div>
+
+            <div class="recommended">
+                <h2>🔥 Рекомендовані (на основі ваших лайків)</h2>
+                <div id="recommended-comics" class="comic-list">
+                    <!-- Рекомендації з'являться тут -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // База даних коміксів (імітація, в реальності можна брати з API)
+        const comics = [
+            { id: 1, title: "Місячне світло", desc: "Романтична історія під місяцем", img: "https://ru.hent.cool/images/1.jpg", tags: ["романтика", "драма"] },
+            { id: 2, title: "Воїни тіні", desc: "Битва в темряві", img: "https://ru.hent.cool/images/2.jpg", tags: ["екшн", "фентезі"] },
+            { id: 3, title: "Шкільні дні", desc: "Щоденник школяра", img: "https://ru.hent.cool/images/3.jpg", tags: ["комедія", "школа"] },
+            { id: 4, title: "Космічна одиссея", desc: "Подорож до зірок", img: "https://ru.hent.cool/images/4.jpg", tags: ["фантастика", "пригоди"] },
+            { id: 5, title: "Загублені души", desc: "Містичний детектив", img: "https://ru.hent.cool/images/5.jpg", tags: ["містика", "детектив"] },
+            { id: 6, title: "Кулінарна магія", desc: "Їжа, що змінює життя", img: "https://ru.hent.cool/images/6.jpg", tags: ["комедія", "фентезі"] },
+            { id: 7, title: "Спогади майбутнього", desc: "Подорож у часі", img: "https://ru.hent.cool/images/7.jpg", tags: ["фантастика", "драма"] },
+            { id: 8, title: "Легенда про меч", desc: "Шлях воїна", img: "https://ru.hent.cool/images/8.jpg", tags: ["екшн", "історичний"] },
+        ];
+
+        let currentComicId = null;
+        let likedHistory = JSON.parse(localStorage.getItem('likedHistory')) || [];
+        let dislikedIds = JSON.parse(localStorage.getItem('dislikedIds')) || [];
+        let viewedIds = JSON.parse(localStorage.getItem('viewedIds')) || [];
+
+        // Завантаження випадкового комікса
+        function loadRandomComic() {
+            const availableComics = comics.filter(c => !dislikedIds.includes(c.id));
+            if (availableComics.length === 0) {
+                document.getElementById('current-comic').src = '';
+                document.getElementById('comic-title').textContent = 'Всі комікси переглянуті';
+                document.getElementById('comic-desc').textContent = '';
+                return;
+            }
+            const randomIndex = Math.floor(Math.random() * availableComics.length);
+            const comic = availableComics[randomIndex];
+            currentComicId = comic.id;
+            document.getElementById('current-comic').src = comic.img;
+            document.getElementById('comic-title').textContent = comic.title;
+            document.getElementById('comic-desc').textContent = comic.desc;
+        }
+
+        // Оцінка комікса
+        function rateComic(type) {
+            if (!currentComicId) return;
+            if (type === 'like') {
+                if (!likedHistory.find(c => c.id === currentComicId)) {
+                    const comic = comics.find(c => c.id === currentComicId);
+                    likedHistory.push(comic);
+                    localStorage.setItem('likedHistory', JSON.stringify(likedHistory));
+                }
+            } else if (type === 'dislike') {
+                if (!dislikedIds.includes(currentComicId)) {
+                    dislikedIds.push(currentComicId);
+                    localStorage.setItem('dislikedIds', JSON.stringify(dislikedIds));
+                }
+            }
+            updateHistory();
+            updateRecommendations();
+            loadRandomComic();
+        }
+
+        // Перегляд комікса (відкриває посилання)
+        function viewComic() {
+            if (!currentComicId) return;
+            const comic = comics.find(c => c.id === currentComicId);
+            window.open(`https://ru.hent.cool/comic/${currentComicId}`, '_blank');
+            if (!viewedIds.includes(currentComicId)) {
+                viewedIds.push(currentComicId);
+                localStorage.setItem('viewedIds', JSON.stringify(viewedIds));
+            }
+        }
+
+        // Оновлення історії лайків
+        function updateHistory() {
+            const container = document.getElementById('liked-comics');
+            container.innerHTML = '';
+            likedHistory.forEach(comic => {
+                const item = document.createElement('div');
+                item.className = 'comic-item';
+                item.innerHTML = `
+                    <img src="${comic.img}" alt="${comic.title}" />
+                    <p>${comic.title}</p>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Оновлення рекомендацій (на основі спільних тегів)
+        function updateRecommendations() {
+            const likedTags = likedHistory.flatMap(c => c.tags);
+            const tagCount = {};
+            likedTags.forEach(tag => { tagCount[tag] = (tagCount[tag] || 0) + 1; });
+
+            const recommended = comics
+                .filter(c => !dislikedIds.includes(c.id) && !likedHistory.find(l => l.id === c.id))
+                .map(c => ({
+                    ...c,
+                    score: c.tags.reduce((sum, tag) => sum + (tagCount[tag] || 0), 0)
+                }))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 4);
+
+            const container = document.getElementById('recommended-comics');
+            container.innerHTML = '';
+            recommended.forEach(comic => {
+                const item = document.createElement('div');
+                item.className = 'comic-item';
+                item.innerHTML = `
+                    <img src="${comic.img}" alt="${comic.title}" />
+                    <p>${comic.title}</p>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // Ініціалізація
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRandomComic();
+            updateHistory();
+            updateRecommendations();
+        });
+    </script>
+</body>
+</html>

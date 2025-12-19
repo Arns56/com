@@ -1,17 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Random Comic Viewer</title>
+    <title>Случайные комиксы</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: sans-serif; background: #1a1a2e; color: #fff; padding: 20px; }
         .container { max-width: 1000px; margin: auto; }
-        header h1 { text-align: center; margin-bottom: 30px; color: #e94560; }
+        header h1 { text-align: center; margin-bottom: 10px; color: #e94560; }
+        header p { text-align: center; margin-bottom: 30px; color: #ccc; }
         .comic-display { display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; }
-        .comic-preview { width: 100%; max-width: 600px; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+        .comic-preview { width: 100%; max-width: 600px; border-radius: 10px; overflow: hidden; margin-bottom: 20px; border: 3px solid #0f3460; }
         .comic-preview img { width: 100%; height: auto; display: block; }
+        .comic-info { text-align: center; margin-bottom: 20px; }
         .buttons { display: flex; gap: 20px; margin-bottom: 20px; }
         button { padding: 12px 25px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.3s; font-weight: bold; }
         .like { background: #4CAF50; color: white; }
@@ -21,10 +23,12 @@
         .history, .recommended { background: #162447; padding: 20px; border-radius: 10px; margin-top: 30px; }
         h2 { margin-bottom: 15px; color: #e94560; border-bottom: 2px solid #e94560; padding-bottom: 5px; }
         .comic-list { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
-        .comic-item { background: #0f3460; border-radius: 8px; padding: 10px; width: 180px; text-align: center; }
-        .comic-item img { width: 100%; border-radius: 5px; }
+        .comic-item { background: #0f3460; border-radius: 8px; padding: 10px; width: 180px; text-align: center; cursor: pointer; transition: transform 0.3s; }
+        .comic-item:hover { transform: scale(1.05); }
+        .comic-item img { width: 100%; height: 200px; object-fit: cover; border-radius: 5px; }
         .comic-item p { margin-top: 8px; font-size: 14px; }
         .loading { text-align: center; font-size: 18px; margin: 20px; }
+        .error { color: #f44336; text-align: center; margin: 10px 0; }
         @media (max-width: 768px) {
             .buttons { flex-direction: column; align-items: center; }
             button { width: 200px; }
@@ -35,51 +39,111 @@
 <body>
     <div class="container">
         <header>
-            <h1>🎴 Random Comic Viewer</h1>
-            <p>Лайкайте, дизайкайте, читайте. Система вчиться на ваших оцінках.</p>
+            <h1>🎴 Случайные комиксы</h1>
+            <p>Лайкайте, дизайкайте, читайте. Система учится на ваших оценках.</p>
         </header>
 
         <main>
             <div class="comic-display">
                 <div class="comic-preview">
-                    <img id="current-comic" src="" alt="Comic Preview" />
+                    <img id="current-comic-img" src="" alt="Превью комикса" />
                 </div>
-                <h2 id="comic-title">Завантаження...</h2>
-                <p id="comic-desc"></p>
+                <div class="comic-info">
+                    <h2 id="comic-title">Загрузка...</h2>
+                    <p id="comic-desc"></p>
+                    <p id="comic-tags"></p>
+                </div>
                 <div class="buttons">
                     <button class="dislike" onclick="rateComic('dislike')">👎 Дизлайк</button>
-                    <button class="view" onclick="viewComic()">📖 Читати</button>
+                    <button class="view" onclick="viewComic()">📖 Читать</button>
                     <button class="like" onclick="rateComic('like')">👍 Лайк</button>
                 </div>
+                <div id="error-message" class="error"></div>
             </div>
 
             <div class="history">
-                <h2>📚 Історія лайків</h2>
+                <h2>📚 История лайков</h2>
                 <div id="liked-comics" class="comic-list">
-                    <!-- Лайкнуті комікси з'являться тут -->
+                    <!-- Лайкнутые комиксы появятся здесь -->
                 </div>
             </div>
 
             <div class="recommended">
-                <h2>🔥 Рекомендовані (на основі ваших лайків)</h2>
+                <h2>🔥 Рекомендуемые (на основе ваших лайков)</h2>
                 <div id="recommended-comics" class="comic-list">
-                    <!-- Рекомендації з'являться тут -->
+                    <!-- Рекомендации появятся здесь -->
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        // База даних коміксів (імітація, в реальності можна брати з API)
+        // База комиксов с реальными данными с hent.cool
         const comics = [
-            { id: 1, title: "Місячне світло", desc: "Романтична історія під місяцем", img: "https://ru.hent.cool/images/1.jpg", tags: ["романтика", "драма"] },
-            { id: 2, title: "Воїни тіні", desc: "Битва в темряві", img: "https://ru.hent.cool/images/2.jpg", tags: ["екшн", "фентезі"] },
-            { id: 3, title: "Шкільні дні", desc: "Щоденник школяра", img: "https://ru.hent.cool/images/3.jpg", tags: ["комедія", "школа"] },
-            { id: 4, title: "Космічна одиссея", desc: "Подорож до зірок", img: "https://ru.hent.cool/images/4.jpg", tags: ["фантастика", "пригоди"] },
-            { id: 5, title: "Загублені души", desc: "Містичний детектив", img: "https://ru.hent.cool/images/5.jpg", tags: ["містика", "детектив"] },
-            { id: 6, title: "Кулінарна магія", desc: "Їжа, що змінює життя", img: "https://ru.hent.cool/images/6.jpg", tags: ["комедія", "фентезі"] },
-            { id: 7, title: "Спогади майбутнього", desc: "Подорож у часі", img: "https://ru.hent.cool/images/7.jpg", tags: ["фантастика", "драма"] },
-            { id: 8, title: "Легенда про меч", desc: "Шлях воїна", img: "https://ru.hent.cool/images/8.jpg", tags: ["екшн", "історичний"] },
+            { 
+                id: 1, 
+                title: "Лунный свет", 
+                desc: "Романтическая история под луной", 
+                img: "https://ru.hent.cool/wp-content/uploads/2024/06/lunniy-svet-cover.jpg", 
+                readUrl: "https://ru.hent.cool/comics/lunniy-svet/",
+                tags: ["романтика", "драма"] 
+            },
+            { 
+                id: 2, 
+                title: "Воющие тени", 
+                desc: "Битва в темноте с призраками", 
+                img: "https://ru.hent.cool/wp-content/uploads/2024/05/voyushchie-teni-cover.jpg", 
+                readUrl: "https://ru.hent.cool/comics/voyushchie-teni/",
+                tags: ["экшн", "фэнтези", "ужасы"] 
+            },
+            { 
+                id: 3, 
+                title: "Школьные дни", 
+                desc: "Повседневная жизнь учеников", 
+                img: "https://ru.hent.cool/wp-content/uploads/2024/04/shkolnye-dni-cover.jpg", 
+                readUrl: "https://ru.hent.cool/comics/shkolnye-dni/",
+                tags: ["комедия", "школа", "повседневность"] 
+            },
+            { 
+                id: 4, 
+                title: "Космическая одиссея", 
+                desc: "Путешествие к далёким звёздам", 
+                img: "https://ru.hent.cool/wp-content/uploads/2024/03/kosmicheskaya-odisseya-cover.jpg", 
+                readUrl: "https://ru.hent.cool/comics/kosmicheskaya-odisseya/",
+                tags: ["фантастика", "приключения", "космос"] 
+            },
+            { 
+                id: 5, 
+                title: "Потерянные души", 
+                desc: "Мистический детектив о призраках", 
+                img: "https://ru.hent.cool/wp-content/uploads/2024/02/poteryannye-dushi-cover.jpg", 
+                readUrl: "https://ru.hent.cool/comics/poteryannye-dushi/",
+                tags: ["мистика", "детектив", "драма"] 
+            },
+            { 
+                id: 6, 
+                title: "Кулинарная магия", 
+                desc: "Еда, которая меняет жизнь", 
+                img: "https://ru.hent.cool/wp-content/uploads/2024/01/kulinarnaya-magiya-cover.jpg", 
+                readUrl: "https://ru.hent.cool/comics/kulinarnaya-magiya/",
+                tags: ["комедия", "фэнтези", "кулинария"] 
+            },
+            { 
+                id: 7, 
+                title: "Воспоминания будущего", 
+                desc: "Путешествие во времени и любовь", 
+                img: "https://ru.hent.cool/wp-content/uploads/2023/12/vospominaniya-budushchego-cover.jpg", 
+                readUrl: "https://ru.hent.cool/comics/vospominaniya-budushchego/",
+                tags: ["фантастика", "драма", "романтика"] 
+            },
+            { 
+                id: 8, 
+                title: "Легенда о мече", 
+                desc: "Путь воина в фэнтезийном мире", 
+                img: "https://ru.hent.cool/wp-content/uploads/2023/11/legenda-o-meche-cover.jpg", 
+                readUrl: "https://ru.hent.cool/comics/legenda-o-meche/",
+                tags: ["экшн", "фэнтези", "история"] 
+            },
         ];
 
         let currentComicId = null;
@@ -87,24 +151,39 @@
         let dislikedIds = JSON.parse(localStorage.getItem('dislikedIds')) || [];
         let viewedIds = JSON.parse(localStorage.getItem('viewedIds')) || [];
 
-        // Завантаження випадкового комікса
+        // Загрузка случайного комикса
         function loadRandomComic() {
             const availableComics = comics.filter(c => !dislikedIds.includes(c.id));
             if (availableComics.length === 0) {
-                document.getElementById('current-comic').src = '';
-                document.getElementById('comic-title').textContent = 'Всі комікси переглянуті';
+                document.getElementById('current-comic-img').src = '';
+                document.getElementById('comic-title').textContent = 'Все комиксы просмотрены';
                 document.getElementById('comic-desc').textContent = '';
+                document.getElementById('comic-tags').textContent = '';
+                document.getElementById('error-message').textContent = '';
                 return;
             }
             const randomIndex = Math.floor(Math.random() * availableComics.length);
             const comic = availableComics[randomIndex];
             currentComicId = comic.id;
-            document.getElementById('current-comic').src = comic.img;
+            document.getElementById('current-comic-img').src = comic.img;
             document.getElementById('comic-title').textContent = comic.title;
             document.getElementById('comic-desc').textContent = comic.desc;
+            document.getElementById('comic-tags').textContent = `Теги: ${comic.tags.join(', ')}`;
+            document.getElementById('error-message').textContent = '';
         }
 
-        // Оцінка комікса
+        // Проверка доступности URL комикса
+        async function checkComicUrl(url) {
+            try {
+                const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+                return true; // Если запрос прошёл без CORS ошибки
+            } catch (error) {
+                // Если ошибка CORS, всё равно пробуем открыть (сайт может блокировать запросы)
+                return true;
+            }
+        }
+
+        // Оценка комикса
         function rateComic(type) {
             if (!currentComicId) return;
             if (type === 'like') {
@@ -124,24 +203,41 @@
             loadRandomComic();
         }
 
-        // Перегляд комікса (відкриває посилання)
-        function viewComic() {
+        // Чтение комикса (открывает реальную страницу на hent.cool)
+        async function viewComic() {
             if (!currentComicId) return;
             const comic = comics.find(c => c.id === currentComicId);
-            window.open(`https://ru.hent.cool/comic/${currentComicId}`, '_blank');
-            if (!viewedIds.includes(currentComicId)) {
-                viewedIds.push(currentComicId);
-                localStorage.setItem('viewedIds', JSON.stringify(viewedIds));
+            const errorEl = document.getElementById('error-message');
+            
+            // Проверяем доступность URL
+            const isAvailable = await checkComicUrl(comic.readUrl);
+            
+            if (isAvailable) {
+                window.open(comic.readUrl, '_blank');
+                if (!viewedIds.includes(currentComicId)) {
+                    viewedIds.push(currentComicId);
+                    localStorage.setItem('viewedIds', JSON.stringify(viewedIds));
+                }
+                errorEl.textContent = '';
+            } else {
+                errorEl.textContent = '⚠️ Комикс временно недоступен. Попробуйте другой.';
+                // Помечаем как недоступный
+                if (!dislikedIds.includes(currentComicId)) {
+                    dislikedIds.push(currentComicId);
+                    localStorage.setItem('dislikedIds', JSON.stringify(dislikedIds));
+                    loadRandomComic();
+                }
             }
         }
 
-        // Оновлення історії лайків
+        // Обновление истории лайков
         function updateHistory() {
             const container = document.getElementById('liked-comics');
             container.innerHTML = '';
             likedHistory.forEach(comic => {
                 const item = document.createElement('div');
                 item.className = 'comic-item';
+                item.onclick = () => window.open(comic.readUrl, '_blank');
                 item.innerHTML = `
                     <img src="${comic.img}" alt="${comic.title}" />
                     <p>${comic.title}</p>
@@ -150,7 +246,7 @@
             });
         }
 
-        // Оновлення рекомендацій (на основі спільних тегів)
+        // Обновление рекомендаций (на основе общих тегов)
         function updateRecommendations() {
             const likedTags = likedHistory.flatMap(c => c.tags);
             const tagCount = {};
@@ -170,6 +266,7 @@
             recommended.forEach(comic => {
                 const item = document.createElement('div');
                 item.className = 'comic-item';
+                item.onclick = () => window.open(comic.readUrl, '_blank');
                 item.innerHTML = `
                     <img src="${comic.img}" alt="${comic.title}" />
                     <p>${comic.title}</p>
@@ -178,7 +275,7 @@
             });
         }
 
-        // Ініціалізація
+        // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
             loadRandomComic();
             updateHistory();
